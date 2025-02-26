@@ -2,6 +2,8 @@
 
 This repository demonstrates how to implement low-latency audio streaming when working with the Gemini API's speech synthesis capabilities. The implementation addresses the common issue of audio playback delay by using a buffer-and-stream approach instead of waiting for the entire audio response before playback.
 
+https://github.com/user-attachments/assets/c1d53cfb-8d50-484e-a6a5-0651411dfc8c
+
 ## The Problem
 
 When working with voice-enabled AI models like Gemini, audio responses are typically delivered in chunks. A naive implementation might look like this:
