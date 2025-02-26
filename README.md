@@ -1,4 +1,4 @@
-# Low-Latency Audio Streaming from Gemini API
+# Low-Latency Audio Streaming from Gemini API (Without Websocket)
 
 This repository demonstrates how to implement low-latency audio streaming when working with the Gemini API's speech synthesis capabilities. The implementation addresses the common issue of audio playback delay by using a buffer-and-stream approach instead of waiting for the entire audio response before playback.
 
