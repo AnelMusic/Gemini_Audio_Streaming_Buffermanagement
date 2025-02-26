@@ -1,33 +1,4 @@
-### Audio Streaming with Callbacks
-
-Instead of using sounddevice's `play()` function (which blocks until completion), we use the streaming API with callbacks:
-
-```python
-def audio_callback(outdata, frames, time, status):
-    with self.buffer_lock:
-        if len(self.buffer) == 0:
-            # No data yet, output silence
-            outdata.fill(0)
-            return
-        
-        # Get data from buffer
-        if len(self.buffer) >= frames:
-            # Convert from int16 to float32 (-1.0 to 1.0)
-            outdata[:, 0] = self.buffer[:frames].astype(np.float32) / 32768.0
-            # Remove used data from buffer
-            self.buffer = self.buffer[frames:]
-        else:
-            # Not enough data, use what we have and fill rest with silence
-            outdata[:len(self.buffer), 0] = self.buffer.astype(np.float32) / 32768.0
-            outdata[len(self.buffer):, 0] = 0
-            self.buffer = np.array([], dtype=np.int16)
-```
-
-This callback:
-1. Locks the buffer to prevent concurrent modification
-2. Checks if there's enough data to fill the requested frame size
-3. Extracts the needed samples and updates the buffer
-4. Handles the case where there's not enough data by outputting silence# Low-Latency Audio Streaming from Gemini API
+# Low-Latency Audio Streaming from Gemini API
 
 This repository demonstrates how to implement low-latency audio streaming when working with the Gemini API's speech synthesis capabilities. The implementation addresses the common issue of audio playback delay by using a buffer-and-stream approach instead of waiting for the entire audio response before playback.
 
