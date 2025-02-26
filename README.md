@@ -1,4 +1,33 @@
-# Low-Latency Audio Streaming from Gemini API
+### Audio Streaming with Callbacks
+
+Instead of using sounddevice's `play()` function (which blocks until completion), we use the streaming API with callbacks:
+
+```python
+def audio_callback(outdata, frames, time, status):
+    with self.buffer_lock:
+        if len(self.buffer) == 0:
+            # No data yet, output silence
+            outdata.fill(0)
+            return
+        
+        # Get data from buffer
+        if len(self.buffer) >= frames:
+            # Convert from int16 to float32 (-1.0 to 1.0)
+            outdata[:, 0] = self.buffer[:frames].astype(np.float32) / 32768.0
+            # Remove used data from buffer
+            self.buffer = self.buffer[frames:]
+        else:
+            # Not enough data, use what we have and fill rest with silence
+            outdata[:len(self.buffer), 0] = self.buffer.astype(np.float32) / 32768.0
+            outdata[len(self.buffer):, 0] = 0
+            self.buffer = np.array([], dtype=np.int16)
+```
+
+This callback:
+1. Locks the buffer to prevent concurrent modification
+2. Checks if there's enough data to fill the requested frame size
+3. Extracts the needed samples and updates the buffer
+4. Handles the case where there's not enough data by outputting silence# Low-Latency Audio Streaming from Gemini API
 
 This repository demonstrates how to implement low-latency audio streaming when working with the Gemini API's speech synthesis capabilities. The implementation addresses the common issue of audio playback delay by using a buffer-and-stream approach instead of waiting for the entire audio response before playback.
 
@@ -20,6 +49,7 @@ if audio_data:
     sd.play(combined_audio, sample_rate)
     sd.wait()
 ```
+
 ```
 Input > Hi tell me a joke
 Receiving audio response...
@@ -105,36 +135,21 @@ def add_chunk(self, chunk):
 
 This ensures that chunks can be added while playback is occurring without data corruption or race conditions.
 
-### Audio Streaming with Callbacks
+### Audio Format Conversion
 
-Instead of using sounddevice's `play()` function (which blocks until completion), we use the streaming API with callbacks:
+A critical part of the audio processing is converting between the int16 format (used by the Gemini API) and the float32 format (required by sounddevice):
 
 ```python
-def audio_callback(outdata, frames, time, status):
-    with self.buffer_lock:
-        if len(self.buffer) == 0:
-            # No data yet, output silence
-            outdata.fill(0)
-            return
-        
-        # Get data from buffer
-        if len(self.buffer) >= frames:
-            # Convert from int16 to float32 (-1.0 to 1.0)
-            outdata[:, 0] = self.buffer[:frames].astype(np.float32) / 32768.0
-            # Remove used data from buffer
-            self.buffer = self.buffer[frames:]
-        else:
-            # Not enough data, use what we have and fill rest with silence
-            outdata[:len(self.buffer), 0] = self.buffer.astype(np.float32) / 32768.0
-            outdata[len(self.buffer):, 0] = 0
-            self.buffer = np.array([], dtype=np.int16)
+# Convert from int16 to float32 (-1.0 to 1.0)
+outdata[:, 0] = self.buffer[:frames].astype(np.float32) / 32768.0
 ```
 
-This callback:
-1. Locks the buffer to prevent concurrent modification
-2. Checks if there's enough data to fill the requested frame size
-3. Extracts the needed samples and updates the buffer
-4. Handles the case where there's not enough data by outputting silence
+This division by 32768.0 (which is 2¹⁵) is necessary because:
+1. The audio data from Gemini comes as 16-bit integers (int16) with values ranging from -32768 to 32767
+2. The sounddevice library expects float32 values in the range of -1.0 to 1.0
+3. Dividing by 32768.0 scales the int16 values to the proper float32 range
+
+This conversion ensures that the audio amplitude is correctly preserved during playback.
 
 ### Smooth Playback Timing
 
@@ -206,7 +221,7 @@ The implementation includes several parameters that can be tuned to optimize per
 
 To use this code:
 
-1. Set up your environment variables (GEMINI_API_KEY) - .env
+1. Set up your environment variables (GEMINI_API_KEY)
 2. Run the script to start an interactive session with Gemini
 3. Type your query and hear the response with minimal delay
 
